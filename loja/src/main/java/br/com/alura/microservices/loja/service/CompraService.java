@@ -1,27 +1,41 @@
 package br.com.alura.microservices.loja.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
+import br.com.alura.microservices.loja.client.FornecedorClient;
 import br.com.alura.microservices.loja.controller.dto.CompraDTO;
 import br.com.alura.microservices.loja.controller.dto.InfoFornecedorDTO;
+import br.com.alura.microservices.loja.controller.dto.InfoPedidoDTO;
+import br.com.alura.microservices.loja.model.Compra;
 
 @Service
 public class CompraService {
 	
+	private static final Logger LOG = LoggerFactory.getLogger(CompraService.class);
+	
 	@Autowired
-	private RestTemplate client;
+	private FornecedorClient fornecedorClient;
 
-	public void realizaCompra(CompraDTO compra) {
-		ResponseEntity<InfoFornecedorDTO> exchange = client.exchange(
-				"http://fornecedor/info/" + compra.getEndereco().getEstado(), HttpMethod.GET, null,
-				InfoFornecedorDTO.class);
-
-		System.out.println(exchange.getBody().getEndereco());
-
+	public Compra realizaCompra(CompraDTO compra) {
+		
+		String estado = compra.getEndereco().getEstado();
+		
+		LOG.info("Buscando informações de fornecedor de {}", estado);
+		InfoFornecedorDTO info = fornecedorClient.getInfoPorEstado(compra.getEndereco().getEstado());
+		
+		LOG.info("Realizando um pedido");
+		InfoPedidoDTO pedido = fornecedorClient.realizaPedido(compra.getItens());
+	
+		Compra compraSalva = new Compra();
+		compraSalva.setPedidoId(pedido.getId());
+		compraSalva.setTempoDePreparo(pedido.getTempoDePreparo());
+		compraSalva.setEnderecoDestino(info.getEndereco());
+		
+		return compraSalva;
+		
 	}
 
 }
